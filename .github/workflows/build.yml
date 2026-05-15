@@ -9,8 +9,8 @@ jobs:
         with:
           java-version: '21'
           distribution: 'temurin'
-      - run: mvn package -DskipTests -f ClaimPlugin_fixed/ClaimPlugin/pom.xml
+      - run: mvn package -DskipTests -f DeathReset/pom.xml
       - uses: actions/upload-artifact@v4
         with:
-          name: ClaimPlugin-jar
-          path: ClaimPlugin_fixed/ClaimPlugin/target/*.jar
+          name: DeathReset-jar
+          path: DeathReset/target/*.jar
