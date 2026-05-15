@@ -30,17 +30,17 @@ public class DeathResetListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         
-        // 1. On vide les drops au sol (effet Curse of Vanishing global)
+        // Empêche les items de tomber au sol
         event.getDrops().clear();
         event.setDroppedExp(0);
         
-        // 2. On vide l'inventaire du joueur AVANT qu'il ne respawn 
-        // (Sécurité totale contre le keepInventory ou autres plugins)
+        // Sécurité : on vide l'inventaire et l'équipement du joueur immédiatement
+        // Cela garantit que TOUT est perdu, même avec le keepInventory
         player.getInventory().clear();
-        player.getEquipment().clear(); // Vide armure et main gauche
+        player.getEquipment().clear();
         
         pendingReset.add(player.getUniqueId());
-        player.sendMessage("§c☠ TOUT votre inventaire a été pulvérisé !");
+        player.sendMessage("§c☠ Malédiction : Tout votre équipement a été détruit !");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -48,56 +48,66 @@ public class DeathResetListener implements Listener {
         Player player = event.getPlayer();
         if (!pendingReset.remove(player.getUniqueId())) return;
 
-        // Délai de 2 ticks pour laisser le temps au joueur de réapparaître
+        // Délai de 5 ticks pour s'assurer que le joueur a bien réapparu
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            // 3. Reset de l'Ender Chest
+            // Reset de l'Ender Chest
             player.getEnderChest().clear();
             player.sendMessage("§c☠ Votre Ender Chest a été vidé.");
             
-            // 4. Reset des coffres dans les claims (Méthode optimisée)
+            // Reset des coffres dans ses propres claims
             resetClaimChests(player);
-        }, 2L);
+        }, 5L);
     }
 
     private void resetClaimChests(Player player) {
+        // Accès au fichier de configuration du plugin de claim
         File claimsFile = new File(plugin.getDataFolder().getParentFile(), "ClaimPlugin/claims.yml");
         if (!claimsFile.exists()) return;
 
         FileConfiguration claimsConfig = YamlConfiguration.loadConfiguration(claimsFile);
-        int count = 0;
+        String playerUUID = player.getUniqueId().toString();
+        int totalCleared = 0;
 
         for (String key : claimsConfig.getKeys(false)) {
-            String ownerUUID = claimsConfig.getString(key);
-            if (!player.getUniqueId().toString().equals(ownerUUID)) continue;
-
-            String[] parts = key.split("_");
-            if (parts.length < 3) continue;
-
-            try {
-                int z = Integer.parseInt(parts[parts.length - 1]);
-                int x = Integer.parseInt(parts[parts.length - 2]);
-                String worldName = key.substring(0, key.lastIndexOf("_" + x + "_" + z));
-
-                World world = Bukkit.getWorld(worldName);
-                if (world == null) continue;
-
-                Chunk chunk = world.getChunkAt(x, z);
-                if (!chunk.isLoaded()) chunk.load();
-
-                // On utilise getTileEntities pour ne pas faire crash le serveur
-                for (BlockState state : chunk.getTileEntities()) {
-                    if (state instanceof Chest) {
-                        ((Chest) state).getInventory().clear();
-                        count++;
+            String owner = claimsConfig.getString(key);
+            
+            // Vérifie si le chunk appartient au joueur mort
+            if (playerUUID.equals(owner)) {
+                try {
+                    // On extrait les coordonnées (Format : monde_x_z)
+                    String[] parts = key.split("_");
+                    int z = Integer.parseInt(parts[parts.length - 1]);
+                    int x = Integer.parseInt(parts[parts.length - 2]);
+                    
+                    // Reconstitution du nom du monde (gère les mondes avec des underscores)
+                    StringBuilder worldName = new StringBuilder();
+                    for(int i = 0; i < parts.length - 2; i++) {
+                        if(i > 0) worldName.append("_");
+                        worldName.append(parts[i]);
                     }
+
+                    World world = Bukkit.getWorld(worldName.toString());
+                    if (world != null) {
+                        Chunk chunk = world.getChunkAt(x, z);
+                        if (!chunk.isLoaded()) chunk.load();
+
+                        // Vidage des coffres de manière optimisée (TileEntities)
+                        // Évite de scanner tous les blocs (x16, y256, z16) inutilement
+                        for (BlockState state : chunk.getTileEntities()) {
+                            if (state instanceof Chest) {
+                                ((Chest) state).getInventory().clear();
+                                totalCleared++;
+                            }
+                        }
+                    }
+                } catch (Exception e) {
+                    // Ignore les erreurs de formatage des clés dans le YAML
                 }
-            } catch (Exception e) {
-                // Ignore les erreurs de parsing
             }
         }
 
-        if (count > 0) {
-            player.sendMessage("§c☠ " + count + " coffre(s) de vos claims ont été vidés.");
+        if (totalCleared > 0) {
+            player.sendMessage("§c☠ " + totalCleared + " coffre(s) ont été vidés dans vos zones.");
         }
     }
 }
