@@ -7,6 +7,7 @@ import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.jetbrains.annotations.NotNull;
 
 /**
  * Gère les commandes /claim et /unclaim.
@@ -25,59 +26,69 @@ public class ClaimCommand implements CommandExecutor {
     }
 
     @Override
-    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
 
-        // Ces commandes ne sont utilisables qu'en jeu
+        // 1. Vérification : Joueur uniquement
         if (!(sender instanceof Player)) {
             sender.sendMessage("§cCette commande est réservée aux joueurs.");
-            return true;
+            return true; // On renvoie true pour éviter d'afficher l'aide console
         }
+        
         Player player = (Player) sender;
-
         Chunk chunk = player.getLocation().getChunk();
 
-        // ── /claim ──────────────────────────────────────────────────────────
+        // 2. Gestion de la commande /claim
         if (command.getName().equalsIgnoreCase("claim")) {
-
-            if (claimManager.isClaimed(chunk)) {
-                if (claimManager.isOwner(chunk, player)) {
-                    player.sendMessage("§eVous possédez déjà ce chunk !");
-                } else {
-                    player.sendMessage("§cCe chunk appartient déjà à quelqu'un d'autre.");
-                }
-                return true;
-            }
-
-            if (claimManager.countClaims(player) >= MAX_CLAIMS) {
-                player.sendMessage("§cVous avez atteint la limite de " + MAX_CLAIMS + " claims.");
-                return true;
-            }
-
-            claimManager.addClaim(chunk, player);
-            claimManager.saveAll();
-            player.sendMessage("§aChunk claim avec succès ! (§e" + claimManager.countClaims(player) + "§a/" + MAX_CLAIMS + ")");
-            return true;
+            executeClaim(player, chunk);
+            return true; // IMPORTANT : Toujours true ici
         }
 
-        // ── /unclaim ─────────────────────────────────────────────────────────
+        // 3. Gestion de la commande /unclaim
         if (command.getName().equalsIgnoreCase("unclaim")) {
-
-            if (!claimManager.isClaimed(chunk)) {
-                player.sendMessage("§cCe chunk n'est pas claim.");
-                return true;
-            }
-
-            if (!claimManager.isOwner(chunk, player) && !player.hasPermission("claimplugin.admin")) {
-                player.sendMessage("§cVous ne possédez pas ce chunk.");
-                return true;
-            }
-
-            claimManager.removeClaim(chunk);
-            claimManager.saveAll();
-            player.sendMessage("§aChunk libéré avec succès.");
-            return true;
+            executeUnclaim(player, chunk);
+            return true; // IMPORTANT : Toujours true ici
         }
 
-        return false;
+        return true; // On renvoie true par défaut pour ne jamais afficher le message d'aide automatique
+    }
+
+    private void executeClaim(Player player, Chunk chunk) {
+        // Vérifie si déjà claim
+        if (claimManager.isClaimed(chunk)) {
+            if (claimManager.isOwner(chunk, player)) {
+                player.sendMessage("§eVous possédez déjà ce chunk !");
+            } else {
+                player.sendMessage("§cCe chunk appartient déjà à quelqu'un d'autre.");
+            }
+            return;
+        }
+
+        // Vérifie la limite
+        if (claimManager.countClaims(player) >= MAX_CLAIMS) {
+            player.sendMessage("§cVous avez atteint la limite de " + MAX_CLAIMS + " claims.");
+            return;
+        }
+
+        // Ajout du claim
+        claimManager.addClaim(chunk, player);
+        player.sendMessage("§aChunk claim avec succès ! (§e" + claimManager.countClaims(player) + "§a/" + MAX_CLAIMS + ")");
+    }
+
+    private void executeUnclaim(Player player, Chunk chunk) {
+        // Vérifie si n'est pas claim
+        if (!claimManager.isClaimed(chunk)) {
+            player.sendMessage("§cCe chunk n'est pas protégé.");
+            return;
+        }
+
+        // Vérifie la permission (Propriétaire ou Admin)
+        if (!claimManager.isOwner(chunk, player) && !player.hasPermission("claimplugin.admin")) {
+            player.sendMessage("§cVous ne possédez pas ce chunk.");
+            return;
+        }
+
+        // Suppression du claim
+        claimManager.removeClaim(chunk);
+        player.sendMessage("§aLe chunk a été libéré.");
     }
 }
