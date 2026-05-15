@@ -1,9 +1,8 @@
 package fr.deathreset;
 
 import org.bukkit.*;
-import org.bukkit.block.Block;
+import org.bukkit.block.BlockState;
 import org.bukkit.block.Chest;
-import org.bukkit.block.DoubleChest;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -30,8 +29,14 @@ public class DeathResetListener implements Listener {
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
+        
+        // Supprime les items qui tombent au sol
         event.getDrops().clear();
         event.setDroppedExp(0);
+        
+        // Force le vidage de l'inventaire au cas où (sécurité supplémentaire)
+        player.getInventory().clear();
+        
         pendingReset.add(player.getUniqueId());
         player.sendMessage("§c☠ Vous êtes mort — tous vos items ont disparu !");
     }
@@ -43,7 +48,7 @@ public class DeathResetListener implements Listener {
 
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
             player.getEnderChest().clear();
-            player.sendMessage("§c☠ Votre ender chest a été vidée.");
+            player.sendMessage("§c☠ Votre ender chest a été vidé.");
             resetClaimChests(player);
         }, 2L);
     }
@@ -84,26 +89,17 @@ public class DeathResetListener implements Listener {
         }
     }
 
+    // MÉTHODE ENTIÈREMENT OPTIMISÉE
     private int clearChestsInChunk(Chunk chunk) {
         int count = 0;
-        World world = chunk.getWorld();
-
-        for (int x = 0; x < 16; x++) {
-            for (int z = 0; z < 16; z++) {
-                for (int y = world.getMinHeight(); y < world.getMaxHeight(); y++) {
-                    Block block = chunk.getBlock(x, y, z);
-                    if (block.getState() instanceof Chest) {
-                        Chest chest = (Chest) block.getState();
-                        if (chest.getInventory().getHolder() instanceof DoubleChest) {
-                            DoubleChest dc = (DoubleChest) chest.getInventory().getHolder();
-                            dc.getLeftSide().getInventory().clear();
-                            dc.getRightSide().getInventory().clear();
-                        } else {
-                            chest.getInventory().clear();
-                        }
-                        count++;
-                    }
-                }
+        
+        // Au lieu de vérifier chaque bloc 1 par 1, on récupère directement les "TileEntities" (coffres, fours, etc.)
+        for (BlockState state : chunk.getTileEntities()) {
+            if (state instanceof Chest) {
+                Chest chest = (Chest) state;
+                chest.getInventory().clear();
+                // Note: vider l'inventaire d'une moitié de double-coffre vide automatiquement l'autre moitié sur Spigot.
+                count++;
             }
         }
         return count;
