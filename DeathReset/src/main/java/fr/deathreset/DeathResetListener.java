@@ -30,15 +30,17 @@ public class DeathResetListener implements Listener {
     public void onDeath(PlayerDeathEvent event) {
         Player player = event.getEntity();
         
-        // Supprime les items qui tombent au sol
+        // 1. On vide les drops au sol (effet Curse of Vanishing global)
         event.getDrops().clear();
         event.setDroppedExp(0);
         
-        // Force le vidage de l'inventaire au cas où (sécurité supplémentaire)
+        // 2. On vide l'inventaire du joueur AVANT qu'il ne respawn 
+        // (Sécurité totale contre le keepInventory ou autres plugins)
         player.getInventory().clear();
+        player.getEquipment().clear(); // Vide armure et main gauche
         
         pendingReset.add(player.getUniqueId());
-        player.sendMessage("§c☠ Vous êtes mort — tous vos items ont disparu !");
+        player.sendMessage("§c☠ TOUT votre inventaire a été pulvérisé !");
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -46,9 +48,13 @@ public class DeathResetListener implements Listener {
         Player player = event.getPlayer();
         if (!pendingReset.remove(player.getUniqueId())) return;
 
+        // Délai de 2 ticks pour laisser le temps au joueur de réapparaître
         Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            // 3. Reset de l'Ender Chest
             player.getEnderChest().clear();
-            player.sendMessage("§c☠ Votre ender chest a été vidé.");
+            player.sendMessage("§c☠ Votre Ender Chest a été vidé.");
+            
+            // 4. Reset des coffres dans les claims (Méthode optimisée)
             resetClaimChests(player);
         }, 2L);
     }
@@ -78,30 +84,20 @@ public class DeathResetListener implements Listener {
                 Chunk chunk = world.getChunkAt(x, z);
                 if (!chunk.isLoaded()) chunk.load();
 
-                count += clearChestsInChunk(chunk);
-            } catch (NumberFormatException e) {
-                plugin.getLogger().warning("Clé claims invalide : " + key);
+                // On utilise getTileEntities pour ne pas faire crash le serveur
+                for (BlockState state : chunk.getTileEntities()) {
+                    if (state instanceof Chest) {
+                        ((Chest) state).getInventory().clear();
+                        count++;
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore les erreurs de parsing
             }
         }
 
         if (count > 0) {
-            player.sendMessage("§c☠ " + count + " coffre(s) dans vos claims ont été vidés.");
+            player.sendMessage("§c☠ " + count + " coffre(s) de vos claims ont été vidés.");
         }
-    }
-
-    // MÉTHODE ENTIÈREMENT OPTIMISÉE
-    private int clearChestsInChunk(Chunk chunk) {
-        int count = 0;
-        
-        // Au lieu de vérifier chaque bloc 1 par 1, on récupère directement les "TileEntities" (coffres, fours, etc.)
-        for (BlockState state : chunk.getTileEntities()) {
-            if (state instanceof Chest) {
-                Chest chest = (Chest) state;
-                chest.getInventory().clear();
-                // Note: vider l'inventaire d'une moitié de double-coffre vide automatiquement l'autre moitié sur Spigot.
-                count++;
-            }
-        }
-        return count;
     }
 }
