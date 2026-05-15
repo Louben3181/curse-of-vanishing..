@@ -1,16 +1,27 @@
 name: Build Plugin
-on: [push]
+on: [push, pull_request]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-java@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Java 21
+        uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
-      - run: mvn package -DskipTests -f DeathReset/pom.xml
-      - uses: actions/upload-artifact@v4
+          cache: 'maven' # Optimise la vitesse des builds suivants
+
+      - name: Build with Maven
+        # Vérifie bien si le pom.xml est dans un dossier "DeathReset" ou à la racine !
+        run: mvn clean package -DskipTests
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
         with:
           name: DeathReset-jar
-          path: DeathReset/target/*.jar
+          # Adapte ce chemin si ton JAR est dans un sous-dossier
+          path: target/*.jar
