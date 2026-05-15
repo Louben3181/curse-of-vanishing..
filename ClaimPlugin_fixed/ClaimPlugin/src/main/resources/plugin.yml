@@ -1,0 +1,18 @@
+name: ClaimPlugin
+version: 1.0
+main: fr.claimplugin.ClaimPlugin
+api-version: "1.21"
+description: Plugin de claims et d'équipes
+author: Toi
+
+commands:
+  claim:
+    description: Protège le chunk où tu es
+    usage: /claim
+  unclaim:
+    description: Libère le chunk où tu es
+    usage: /unclaim
+  team:
+    description: Gestion des équipes
+    usage: /team <create|invite|join|leave|list> [args]
+    aliases: [t]

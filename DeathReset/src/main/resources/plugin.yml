@@ -1,0 +1,8 @@
+name: DeathReset
+version: 1.0
+main: fr.deathreset.DeathReset
+api-version: "1.21"
+description: Curse of Vanishing sur tout + reset ender chest et coffres claims à la mort
+author: Toi
+
+# Pas de commandes : tout est automatique
