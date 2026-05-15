@@ -2,17 +2,28 @@ name: ClaimPlugin
 version: 1.0
 main: fr.claimplugin.ClaimPlugin
 api-version: "1.21"
-description: Plugin de claims et d'équipes
-author: Toi
+description: Plugin de gestion de territoires (claims) et d'équipes.
+author: fr.claimplugin
 
 commands:
   claim:
-    description: Protège le chunk où tu es
+    description: Protège le chunk où vous vous trouvez.
     usage: /claim
+    permission: claimplugin.use
   unclaim:
-    description: Libère le chunk où tu es
+    description: Libère le chunk où vous vous trouvez.
     usage: /unclaim
+    permission: claimplugin.use
   team:
-    description: Gestion des équipes
+    description: Gestion des équipes (création, invitation, etc.).
     usage: /team <create|invite|join|leave|list> [args]
+    permission: claimplugin.use
     aliases: [t]
+
+permissions:
+  claimplugin.use:
+    description: Permet d'utiliser les commandes de base du plugin.
+    default: true
+  claimplugin.admin:
+    description: Permet de bypasser les protections et de gérer tous les claims.
+    default: op
