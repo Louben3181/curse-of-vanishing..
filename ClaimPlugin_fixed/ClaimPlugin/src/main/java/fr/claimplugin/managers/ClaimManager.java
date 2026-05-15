@@ -15,20 +15,23 @@ import java.util.UUID;
 /**
  * Gère les claims : qui possède quel chunk.
  * Les données sont sauvegardées dans "claims.yml".
- *
- * Un chunk est identifié par : "monde_x_z"  (ex: "world_10_-3")
  */
 public class ClaimManager {
 
     private final ClaimPlugin plugin;
     private final File claimsFile;
-    private FileConfiguration claimsConfig;
 
-    // Map : clé du chunk → UUID du propriétaire
+    // Map : clé du chunk (monde_x_z) → UUID du propriétaire
     private final Map<String, UUID> claims = new HashMap<>();
 
     public ClaimManager(ClaimPlugin plugin) {
         this.plugin = plugin;
+        
+        // Sécurité : Création du dossier du plugin s'il n'existe pas
+        if (!plugin.getDataFolder().exists()) {
+            plugin.getDataFolder().mkdirs();
+        }
+        
         this.claimsFile = new File(plugin.getDataFolder(), "claims.yml");
         loadClaims();
     }
@@ -51,7 +54,7 @@ public class ClaimManager {
         return owner != null && owner.equals(player.getUniqueId());
     }
 
-    /** Version par UUID (utilisée par DeathReset) */
+    /** Version par UUID (très utile pour DeathReset) */
     public boolean isOwnerByUUID(Chunk chunk, UUID uuid) {
         UUID owner = claims.get(key(chunk));
         return owner != null && owner.equals(uuid);
@@ -67,40 +70,55 @@ public class ClaimManager {
     /** Claim un chunk pour un joueur */
     public void addClaim(Chunk chunk, Player player) {
         claims.put(key(chunk), player.getUniqueId());
+        saveAll(); // Sauvegarde automatique
     }
 
     /** Supprime le claim d'un chunk */
     public void removeClaim(Chunk chunk) {
         claims.remove(key(chunk));
+        saveAll(); // Sauvegarde automatique
     }
 
     /** Nombre de claims d'un joueur */
     public long countClaims(Player player) {
+        UUID uuid = player.getUniqueId();
         return claims.values().stream()
-                .filter(uuid -> uuid.equals(player.getUniqueId()))
+                .filter(owner -> owner.equals(uuid))
                 .count();
     }
 
     // ─── Sauvegarde / Chargement ────────────────────────────────────────────
 
     public void saveAll() {
-        claimsConfig = new YamlConfiguration();
+        FileConfiguration config = new YamlConfiguration();
+        
         for (Map.Entry<String, UUID> entry : claims.entrySet()) {
-            claimsConfig.set(entry.getKey(), entry.getValue().toString());
+            config.set(entry.getKey(), entry.getValue().toString());
         }
+        
         try {
-            claimsConfig.save(claimsFile);
+            config.save(claimsFile);
         } catch (IOException e) {
-            plugin.getLogger().severe("Impossible de sauvegarder claims.yml : " + e.getMessage());
+            plugin.getLogger().severe("§cImpossible de sauvegarder claims.yml : " + e.getMessage());
         }
     }
 
     private void loadClaims() {
         if (!claimsFile.exists()) return;
-        claimsConfig = YamlConfiguration.loadConfiguration(claimsFile);
-        for (String key : claimsConfig.getKeys(false)) {
-            claims.put(key, UUID.fromString(claimsConfig.getString(key)));
+        
+        FileConfiguration config = YamlConfiguration.loadConfiguration(claimsFile);
+        claims.clear();
+
+        for (String chunkKey : config.getKeys(false)) {
+            String uuidString = config.getString(chunkKey);
+            if (uuidString == null) continue;
+
+            try {
+                claims.put(chunkKey, UUID.fromString(uuidString));
+            } catch (IllegalArgumentException e) {
+                plugin.getLogger().warning("§cFormat d'UUID invalide dans claims.yml pour le chunk : " + chunkKey);
+            }
         }
-        plugin.getLogger().info(claims.size() + " claim(s) chargé(s).");
+        plugin.getLogger().info("§a" + claims.size() + " claim(s) chargé(s).");
     }
 }
