@@ -36,7 +36,7 @@
             <artifactId>ClaimPlugin</artifactId>
             <version>1.0</version>
             <scope>system</scope>
-            <systemPath>${project.basedir}/../ClaimPlugin_fixed/target/ClaimPlugin-1.0-SNAPSHOT.jar</systemPath>
+            <systemPath>${project.basedir}/libs/ClaimPlugin-1.0.jar</systemPath>
         </dependency>
     </dependencies>
 
@@ -65,11 +65,5 @@
                 </executions>
             </plugin>
         </plugins>
-        <resources>
-            <resource>
-                <directory>src/main/resources</directory>
-                <filtering>true</filtering>
-            </resource>
-        </resources>
     </build>
 </project>
